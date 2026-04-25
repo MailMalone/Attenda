@@ -1,0 +1,87 @@
+name: Release APK
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'   # triggers on tags like v1.0.0, v1.2.3, etc.
+
+permissions:
+  contents: write  # needed to create GitHub Releases
+
+jobs:
+  build-and-release:
+    name: Build & Publish APK
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── 1. Source ────────────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 2. Java (required by the Android Gradle toolchain) ───────────────────
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      # ── 3. Flutter ───────────────────────────────────────────────────────────
+      - name: Set up Flutter (stable)
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      # ── 4. Dependencies ──────────────────────────────────────────────────────
+      - name: Install pub dependencies
+        run: flutter pub get
+
+      # ── 5. Extract version from the pushed tag ───────────────────────────────
+      #       TAG  = v1.2.3  →  VERSION_NAME = 1.2.3  →  BUILD_NUMBER from GITHUB_RUN_NUMBER
+      - name: Parse version from tag
+        id: version
+        run: |
+          TAG="${GITHUB_REF_NAME}"           # e.g. v1.2.3
+          VERSION_NAME="${TAG#v}"            # strip leading 'v'  → 1.2.3
+          echo "tag=$TAG"                   >> "$GITHUB_OUTPUT"
+          echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+          echo "build_number=$GITHUB_RUN_NUMBER" >> "$GITHUB_OUTPUT"
+
+      # ── 6. Build release APK ─────────────────────────────────────────────────
+      - name: Build release APK
+        run: |
+          flutter build apk \
+            --release \
+            --no-tree-shake-icons \
+            --build-name="${{ steps.version.outputs.version_name }}" \
+            --build-number="${{ steps.version.outputs.build_number }}"
+
+      # ── 7. Rename APK to include version ─────────────────────────────────────
+      - name: Rename APK
+        run: |
+          mv "build/app/outputs/flutter-apk/app-release.apk" \
+             "build/app/outputs/flutter-apk/Attenda-${{ steps.version.outputs.tag }}.apk"
+
+      # ── 8. Create GitHub Release & upload APK ────────────────────────────────
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: "Attenda ${{ steps.version.outputs.tag }}"
+          body: |
+            ## 📦 Attenda ${{ steps.version.outputs.tag }}
+
+            ### Installation
+            1. Download `Attenda-${{ steps.version.outputs.tag }}.apk` below.
+            2. Enable **Install from unknown sources** on your Android device.
+            3. Open the downloaded file and install.
+
+            ---
+            _Built automatically from tag `${{ steps.version.outputs.tag }}` · run #${{ steps.version.outputs.build_number }}_
+          draft: false
+          prerelease: ${{ contains(steps.version.outputs.tag, '-') }}  # e.g. v1.0.0-beta → pre-release
+          fail_on_unmatched_files: true
+          files: |
+            build/app/outputs/flutter-apk/Attenda-${{ steps.version.outputs.tag }}.apk
+

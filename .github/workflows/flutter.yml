@@ -1,10 +1,10 @@
 name: CI – Build Check
 
 on:
-  push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
+  #push:
+    #branches: [ master ]
+  #pull_request:
+    #branches: [ master ]
   workflow_dispatch:
 
 jobs:
@@ -40,4 +40,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: apk-build-${{ github.run_number }}
-          path: build/app/outputs/flutter-apk/app-release.apk
+          path: build/app/outputs/flutter-apk/app-release.apk

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/icon_round.png" width="120" alt="Attenda Logo" />
+  <img src="assets/readme.png" width="120" alt="Attenda Logo" />
 </p>
 
 <h1 align="center">Attenda</h1>

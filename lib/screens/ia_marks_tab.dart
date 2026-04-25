@@ -249,6 +249,80 @@ class _IaSubjectCardState extends State<_IaSubjectCard> {
     return VergeTheme.hazardWhite;
   }
 
+  double _parseScore(String value) {
+    final v = value.trim().toUpperCase();
+    if (v.isEmpty || v == 'AB' || v == '-') return 0.0;
+    return double.tryParse(v) ?? 0.0;
+  }
+
+  int _calculateCie() {
+    // Strip all non-alphanumeric characters from headers for robust matching
+    final hUpper = widget.headers.map((h) => h.toString().toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '')).toList();
+    
+    int findIdx(String pattern) {
+      final cleanPattern = pattern.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
+      return hUpper.indexWhere((h) => h.contains(cleanPattern));
+    }
+
+    double getVal(String pattern) {
+      final idx = findIdx(pattern);
+      if (idx == -1) return 0.0;
+      return _parseScore(widget.rowData[idx].toString());
+    }
+
+    bool isCellEmpty(String pattern) {
+      final idx = findIdx(pattern);
+      if (idx == -1) return true;
+      final val = widget.rowData[idx].toString().trim();
+      return val.isEmpty || val == '-';
+    }
+
+    // Row-specific practical detection: check if practical cells have data
+    bool hasRecord = !isCellEmpty('RECORD');
+    bool hasConduction = !isCellEmpty('CONDUCTION') || !isCellEmpty('CONDUCTANCE');
+    bool hasLabMse = !isCellEmpty('MSELAB') || !isCellEmpty('LABMSE') || !isCellEmpty('PRACTICALMSE');
+    
+    bool isPractical = hasRecord || hasConduction || hasLabMse;
+
+    // Midterm scores (Theory)
+    double mse1 = getVal('MSE1');
+    if (mse1 == 0) mse1 = getVal('TEST1');
+    if (mse1 == 0) mse1 = getVal('IA1');
+    if (mse1 == 0) mse1 = getVal('MIDSEM1');
+    
+    double mse2 = getVal('MSE2');
+    if (mse2 == 0) mse2 = getVal('TEST2');
+    if (mse2 == 0) mse2 = getVal('IA2');
+    if (mse2 == 0) mse2 = getVal('MIDSEM2');
+    
+    // Assignment/Lab scores
+    double la1 = getVal('LA1');
+    double la2 = getVal('LA2');
+    double la3 = getVal('LA3');
+    double la4 = getVal('LA4');
+    
+    // Practical scores
+    double record = getVal('RECORD');
+    double conduction = getVal('CONDUCTION');
+    if (conduction == 0) conduction = getVal('CONDUCTANCE');
+    
+    double mseLab = getVal('MSELAB');
+    if (mseLab == 0) mseLab = getVal('LABMSE');
+    if (mseLab == 0) mseLab = getVal('PRACTICALMSE');
+
+    if (isPractical) {
+      // Case 1: Theory + Practical
+      double th = mse1 + mse2 + la1 + la2 + la3 + la4;
+      double pr = record + conduction + mseLab;
+      double totalCie = (th * 0.60) + (pr * 0.40);
+      return totalCie.round();
+    } else {
+      // Case 2: Theory-Only
+      double totalCie = mse1 + mse2 + la1 + la2 + la3 + la4;
+      return totalCie.round();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (widget.rowData.isEmpty) return const SizedBox();
@@ -262,6 +336,8 @@ class _IaSubjectCardState extends State<_IaSubjectCard> {
 
     final cleanName = _cleanSubjectName(subjectName);
     final code = subjectCode.isNotEmpty ? subjectCode : _extractCode(subjectName);
+
+    final cie = _calculateCie();
 
     return GestureDetector(
       onTap: () => setState(() => _expanded = !_expanded),
@@ -279,34 +355,45 @@ class _IaSubjectCardState extends State<_IaSubjectCard> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (code.isNotEmpty) ...[
+              if (code.isNotEmpty || _isCbt || cie > 0) ...[
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      code.toUpperCase(),
-                      style: VergeTheme.eyebrowAllCaps.copyWith(color: VergeTheme.jellyMint),
+                    if (code.isNotEmpty)
+                      Text(
+                        code.toUpperCase(),
+                        style: VergeTheme.eyebrowAllCaps.copyWith(color: VergeTheme.jellyMint),
+                      )
+                    else
+                      const SizedBox(),
+                    Row(
+                      children: [
+                        if (cie > 0) ...[
+                          _buildCieBadge(cie),
+                          const SizedBox(width: 8),
+                        ],
+                        if (_isCbt)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: VergeTheme.jellyMint.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: VergeTheme.jellyMint,
+                                width: 1,
+                              ),
+                            ),
+                            child: Text(
+                              'CBT',
+                              style: VergeTheme.monoTimestamp.copyWith(
+                                color: VergeTheme.jellyMint,
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
-                    if (_isCbt)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: VergeTheme.jellyMint.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: VergeTheme.jellyMint,
-                            width: 1,
-                          ),
-                        ),
-                        child: Text(
-                          'CBT',
-                          style: VergeTheme.monoTimestamp.copyWith(
-                            color: VergeTheme.jellyMint,
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
                   ],
                 ),
                 const SizedBox(height: 6),
@@ -415,6 +502,43 @@ class _IaSubjectCardState extends State<_IaSubjectCard> {
             style: hasValue
                 ? VergeTheme.largeHeadline.copyWith(color: color, fontSize: 22)
                 : TextStyle(color: color, fontSize: 14, fontWeight: FontWeight.w500, fontStyle: FontStyle.italic),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCieBadge(int cie) {
+    Color color = VergeTheme.jellyMint;
+    if (cie < 35) color = VergeTheme.ultraviolet;
+    else if (cie < 45) color = VergeTheme.hazardWhite;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color, width: 1),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'CIE',
+            style: VergeTheme.monoTimestamp.copyWith(
+              color: color,
+              fontSize: 9,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            cie.toString(),
+            style: VergeTheme.monoTimestamp.copyWith(
+              color: color,
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+            ),
           ),
         ],
       ),

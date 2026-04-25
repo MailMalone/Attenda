@@ -43,12 +43,12 @@ class AttendanceTab extends StatelessWidget {
       if (percentage < 85) atRiskCount++;
     }
 
-    String funnyMessage = '';
-    if (atRiskCount == 0) funnyMessage = "Perfect! You're safe... for now.";
-    else if (atRiskCount == 1) funnyMessage = "One class in the danger zone. Don't slip up!";
-    else if (atRiskCount == 2) funnyMessage = "Two classes short. Time to set some alarms.";
-    else if (atRiskCount == 3) funnyMessage = "Three classes short?! Your bed is too comfortable.";
-    else funnyMessage = "4+ classes? The professor doesn't even know your face anymore fam.";
+    String riskMeter = '';
+    if (atRiskCount == 0) riskMeter = "Perfect! You're safe... for now.";
+    else if (atRiskCount == 1) riskMeter = "One class in the danger zone. Don't slip up!";
+    else if (atRiskCount == 2) riskMeter = "Two classes short. Time to set some alarms.";
+    else if (atRiskCount == 3) riskMeter = "Three classes short?! Your bed is too comfortable.";
+    else riskMeter = "4+ classes? The professor doesn't even know your face anymore fam.";
 
     return RefreshIndicator(
       onRefresh: onRefresh,
@@ -91,7 +91,7 @@ class AttendanceTab extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    funnyMessage,
+                    riskMeter,
                     style: TextStyle(color: VergeTheme.secondaryText, fontSize: 14, height: 1.4),
                   ),
                 ],
